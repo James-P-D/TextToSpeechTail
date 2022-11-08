@@ -15,11 +15,13 @@ class FileModifiedHandler(FileSystemEventHandler):
         self.line_index = line_index
         self.offline = offline
         if self.line_index == -1:
-            # If we're told to start reciting from line -1, set line_index
-            # to point to bottom of file
-            self.line_index = len(self.read_from_file())
+            # If we're told to start reciting from line -1, read the whole file, but don't
+            # play. This will simply seek to the end of the file and set line_index to 
+            # the bottom.
+            self.read_from_file()            
         else:
-            # ...otherwise set the line_index to whatever position requested
+            # ...otherwise set the line_index to whatever position requested, and
+            # play from there
             self.line_index = line_index - 1
             self.play(self.read_from_file())
 
@@ -54,28 +56,35 @@ class FileModifiedHandler(FileSystemEventHandler):
 
         # If there are fewer lines in the file than line_index, then log file has
         # been reset, so seek back to the first line by setting line_index to zero
-        if len(lines) < self.line_index:
+        if (self.line_index != -1) and (len(lines) < self.line_index):
             self.line_index = 0
 
         # Get only the lines we haven't recited yet
         new_lines = lines[self.line_index:]
         self.line_index = len(lines)
-        all_lines = " ".join(new_lines)
+        all_lines = "".join(new_lines)
         return all_lines
 
     def play(self, all_lines):
         if len(all_lines) > 0:
+            print(all_lines)
             if self.offline:
-                import pyttsx3
-                engine = pyttsx3.init()
-                engine.say(all_lines)
-                engine.runAndWait()
+                try:
+                    import pyttsx3
+                    engine = pyttsx3.init()
+                    engine.say(all_lines)
+                    engine.runAndWait()
+                except:
+                    print("Error using pyttsx3")
             else:
-                import gtts
-                tts = gtts.gTTS(all_lines)
-                tts.save(self._TEMP_FILE_NAME)
-                playsound(self._TEMP_FILE_NAME)
-                os.remove(self._TEMP_FILE_NAME)
+                try:
+                    import gtts
+                    tts = gtts.gTTS(all_lines)
+                    tts.save(self._TEMP_FILE_NAME)
+                    playsound(self._TEMP_FILE_NAME)
+                    os.remove(self._TEMP_FILE_NAME)
+                except:
+                    print("Error using gtts")
 
     def on_modified(self, event):
         if not event.is_directory and event.src_path.endswith(self.file_name):
